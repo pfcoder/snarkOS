@@ -25,15 +25,7 @@ use snarkos_node_tcp::{
     P2P,
 };
 use snarkvm::prelude::{
-    Address,
-    Block,
-    CoinbasePuzzle,
-    ConsensusStorage,
-    EpochChallenge,
-    Network,
-    PrivateKey,
-    ProverSolution,
-    ViewKey,
+    Address, Block, CoinbasePuzzle, ConsensusStorage, EpochChallenge, Network, PrivateKey, ProverSolution, ViewKey,
 };
 
 use anyhow::Result;
@@ -44,7 +36,7 @@ use rand::{rngs::OsRng, CryptoRng, Rng};
 use std::{
     net::SocketAddr,
     sync::{
-        atomic::{AtomicBool, AtomicU8, Ordering},
+        atomic::{AtomicBool, AtomicU32, AtomicU8, Ordering},
         Arc,
     },
 };
@@ -74,6 +66,9 @@ pub struct Prover<N: Network, C: ConsensusStorage<N>> {
     shutdown: Arc<AtomicBool>,
     /// PhantomData.
     _phantom: PhantomData<C>,
+
+    solutions_prove: Arc<AtomicU32>,
+    solutions_found: Arc<AtomicU32>,
 }
 
 impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
@@ -110,6 +105,8 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
             handles: Default::default(),
             shutdown: Default::default(),
             _phantom: Default::default(),
+            solutions_prove: Default::default(),
+            solutions_found: Default::default(),
         };
         // Initialize the routing.
         node.initialize_routing().await;
@@ -117,6 +114,41 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
         node.initialize_coinbase_puzzle().await;
         // Initialize the signal handler.
         node.handle_signals();
+
+        let prover = node.clone();
+        /*(spawn_task_loop!(Self, {
+            use colored::*;
+
+            let mut status = std::collections::VecDeque::<u32>::from(vec![0; 60]);
+            let mut timer_count = 0;
+            loop {
+                let new = prover.solutions_prove.load(std::sync::atomic::Ordering::SeqCst);
+                if new > 0 {
+                    if timer_count % (60 / 2) == 0 {
+                        status.pop_front();
+                        status.push_back(new);
+                    }
+
+                    let mut pps = String::from("");
+                    for i in [1, 5, 15, 30, 60] {
+                        let old = status.get(60 - i).unwrap_or(&0);
+                        let rate = (new - *old) as f64 / (i * 60) as f64;
+                        if rate > 0.8 {
+                            pps.push_str(format!("{}m: {:.2} s/s, ", i, rate).as_str());
+                        } else {
+                            pps.push_str(format!("{}m: --- s/s, ", i).as_str());
+                        }
+                    }
+
+                    let found = prover.solutions_found.load(std::sync::atomic::Ordering::SeqCst);
+                    info!("{}", format!("{found}/{new}, {pps}").cyan().bold());
+
+                    timer_count += 1;
+                    tokio::time::sleep(Duration::from_secs(2)).await;
+                }
+            }
+        });*/
+
         // Return the node.
         Ok(node)
     }
@@ -232,6 +264,7 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
 
                 // If the prover found a solution, then broadcast it.
                 if let Ok(Some((solution_target, solution))) = result {
+                    self.solutions_found.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                     info!("Found a Solution '{}' (Proof Target {solution_target})", solution.commitment());
                     // Broadcast the prover solution.
                     self.broadcast_prover_solution(solution);
@@ -269,10 +302,19 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
             .dimmed()
         );
 
+        /*self.solutions_prove.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         // Compute the prover solution.
         let result = self
             .coinbase_puzzle
             .prove(&epoch_challenge, self.address(), rng.gen(), Some(proof_target))
+            .ok()
+            .and_then(|solution| solution.to_target().ok().map(|solution_target| (solution_target, solution)));*/
+
+        self.solutions_prove.fetch_add(8, std::sync::atomic::Ordering::SeqCst);
+        // Compute the prover solution.
+        let result = self
+            .coinbase_puzzle
+            .batch_prove(&epoch_challenge, self.address(), Some(proof_target), 8)
             .ok()
             .and_then(|solution| solution.to_target().ok().map(|solution_target| (solution_target, solution)));
 
