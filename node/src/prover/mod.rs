@@ -115,8 +115,8 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
         // Initialize the signal handler.
         node.handle_signals();
 
-        let prover = node.clone();
-        /*(spawn_task_loop!(Self, {
+        /*let prover = node.clone();
+        (spawn_task_loop!(Self, {
             use colored::*;
 
             let mut status = std::collections::VecDeque::<u32>::from(vec![0; 60]);
@@ -292,11 +292,13 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
     ) -> Option<(u64, ProverSolution<N>)> {
         // Increment the puzzle instances.
         self.increment_puzzle_instances();
+        let found = self.solutions_found.load(std::sync::atomic::Ordering::SeqCst);
+        let new = self.solutions_prove.load(std::sync::atomic::Ordering::SeqCst);
 
         trace!(
             "Proving 'CoinbasePuzzle' {}",
             format!(
-                "(Epoch {}, Coinbase Target {coinbase_target}, Proof Target {proof_target})",
+                "({found}/{new} Epoch {}, Coinbase Target {coinbase_target}, Proof Target {proof_target})",
                 epoch_challenge.epoch_number(),
             )
             .dimmed()
