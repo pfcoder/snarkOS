@@ -25,15 +25,7 @@ use snarkos_node_tcp::{
     P2P,
 };
 use snarkvm::prelude::{
-    Address,
-    Block,
-    CoinbasePuzzle,
-    ConsensusStorage,
-    EpochChallenge,
-    Header,
-    Network,
-    PrivateKey,
-    ProverSolution,
+    Address, Block, CoinbasePuzzle, ConsensusStorage, EpochChallenge, Header, Network, PrivateKey, ProverSolution,
     ViewKey,
 };
 
@@ -128,7 +120,7 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
         // Initialize the signal handler.
         node.handle_signals();
 
-        let prover = node.clone();
+        /*let prover = node.clone();
         tokio::spawn(async move {
             use colored::*;
 
@@ -160,7 +152,7 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
                     tokio::time::sleep(Duration::from_secs(2)).await;
                 }
             }
-        });
+        });*/
 
         // Return the node.
         Ok(node)
@@ -301,14 +293,14 @@ impl<N: Network, C: ConsensusStorage<N>> Prover<N, C> {
             .dimmed()
         );
 
-       /* self.solutions_prove.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        // Compute the prover solution.
-        let result = self
-            .coinbase_puzzle
-            .prove(&epoch_challenge, self.address(), rng.gen(), Some(proof_target))
-            .ok()
-            .and_then(|solution| solution.to_target().ok().map(|solution_target| (solution_target, solution)));
-*/
+        /* self.solutions_prove.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                // Compute the prover solution.
+                let result = self
+                    .coinbase_puzzle
+                    .prove(&epoch_challenge, self.address(), rng.gen(), Some(proof_target))
+                    .ok()
+                    .and_then(|solution| solution.to_target().ok().map(|solution_target| (solution_target, solution)));
+        */
         self.solutions_prove.fetch_add(64, std::sync::atomic::Ordering::SeqCst);
         // Compute the prover solution.
         let result = self
